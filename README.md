@@ -68,14 +68,29 @@ dtoverlay=wm8960-soundcard
 
 ## Avvio
 
+Sono disponibili tre pipeline audio, tutte con lo stesso fetcher GDELT.
+
+### SuperCollider (consigliata)
 ```bash
 bash start.sh
 ```
+Avvia `sclang` → `scsynth` via `pw-jack`. Richiede `supercollider-server`, `sc3-plugins`.
 
-Lo script:
-1. Inizializza i mixer ALSA del WM8960
-2. Avvia SuperCollider (`sclang` → `scsynth` via `pw-jack`)
-3. Avvia il fetcher GDELT
+### Python / sounddevice
+```bash
+bash start_py.sh
+```
+Sintesi in Python puro via `sounddevice → PipeWire`. Richiede `pip install sounddevice numpy python-osc`.
+
+### Pure Data (legacy)
+```bash
+bash start_pd.sh
+```
+Avvia `pd -nogui` via `pw-jack`. Richiede `pd` e libreria `mrpeach`. Il 5° parametro OSC (`event_code`) viene ignorato dalla patch Pd.
+
+---
+
+Tutti gli script inizializzano i mixer ALSA del WM8960 e attendono che PipeWire sia pronto prima di avviare il motore audio.
 
 ---
 
