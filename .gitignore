@@ -1,0 +1,16 @@
+
+# Stato runtime
+state.json
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Claude
+.claude/
+
+# Pure Data backup
+*~.pd
