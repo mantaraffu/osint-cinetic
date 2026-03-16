@@ -1,53 +1,53 @@
 # OSINT Cinetic
 
-Installazione sonora generativa che trasforma eventi militari globali in suono in tempo reale.
+A generative sound installation that transforms global military events into real-time sound.
 
-I dati vengono scaricati da **GDELT 2.0** ogni 15 minuti, filtrati per tipologia militare (codici CAMEO 190–196) e inviati via **OSC** a un motore **SuperCollider** che li sonifica in base alla distanza geografica da Cagliari.
+Data is fetched from **GDELT 2.0** every 15 minutes, filtered by military event type (CAMEO codes 190–196), and sent via **OSC** to a **SuperCollider** engine that sonifies events based on geographic distance from Cagliari.
 
 ---
 
-## Architettura
+## Architecture
 
 ```
-GDELT 2.0 (ogni 15 min)
+GDELT 2.0 (every 15 min)
     └── fetcher_stream.py
          └── OSC /event → SuperCollider (scsynth)
-                            ├── \bell      background etéreo continuo
-                            ├── \combat    scontri armati (190–193, 196)
-                            └── \bomb      bombardamenti / attacchi aerei (194–195)
+                            ├── \bell      continuous ethereal background
+                            ├── \combat    armed conflicts (190–193, 196)
+                            └── \bomb      bombardments / airstrikes (194–195)
                                 └── PipeWire → WM8960 HAT → speaker / jack
 ```
 
 ---
 
-## Struttura
+## Structure
 
 ```
 osint-cinetic/
-├── start.sh                # Script di avvio
-├── fetcher_stream.py       # Loop fetch → filtra → OSC
-├── state.json              # ID eventi già processati (non versionato)
+├── start.sh                # Startup script
+├── fetcher_stream.py       # Fetch loop → filter → OSC
+├── state.json              # Already-processed event IDs (not versioned)
 ├── connectors/
-│   ├── base.py             # Classe astratta OsintConnector + NormalizedEvent
-│   └── gdelt.py            # Connettore GDELT 2.0
+│   ├── base.py             # Abstract OsintConnector class + NormalizedEvent
+│   └── gdelt.py            # GDELT 2.0 connector
 ├── synth/
-│   ├── osint_sc.scd        # Patch SuperCollider (SynthDef + OSC receiver)
-│   ├── osint.pd            # Patch Pure Data (legacy)
-│   ├── voice.pd            # Voce singola Pd (legacy)
-│   └── choir_voice.pd      # Coro Pd (legacy)
-└── logs/                   # Log runtime (non versionato)
+│   ├── osint_sc.scd        # SuperCollider patch (SynthDef + OSC receiver)
+│   ├── osint.pd            # Pure Data patch (legacy)
+│   ├── voice.pd            # Single Pd voice (legacy)
+│   └── choir_voice.pd      # Pd choir (legacy)
+└── logs/                   # Runtime logs (not versioned)
 ```
 
 ---
 
-## Requisiti
+## Requirements
 
-**Sistema:**
-- Raspberry Pi con HAT **WM8960** (speaker + jack 3.5mm)
+**System:**
+- Raspberry Pi with **WM8960** HAT (speaker + 3.5mm jack)
 - Raspberry Pi OS Bookworm 64-bit
 - `pipewire`, `pipewire-jack`, `wireplumber`
 
-**Pacchetti:**
+**Packages:**
 ```bash
 sudo apt install supercollider-server sc3-plugins
 ```
@@ -57,7 +57,7 @@ sudo apt install supercollider-server sc3-plugins
 pip install python-osc requests
 ```
 
-**`/boot/firmware/config.txt`** (necessario per JACK su I2S):
+**`/boot/firmware/config.txt`** (required for JACK over I2S):
 ```
 dtparam=i2s=on
 dtoverlay=i2s-mmap
@@ -66,82 +66,82 @@ dtoverlay=wm8960-soundcard
 
 ---
 
-## Avvio
+## Running
 
-Sono disponibili tre pipeline audio, tutte con lo stesso fetcher GDELT.
+Three audio pipelines are available, all sharing the same GDELT fetcher.
 
-### SuperCollider (consigliata)
+### SuperCollider (recommended)
 ```bash
 bash start.sh
 ```
-Avvia `sclang` → `scsynth` via `pw-jack`. Richiede `supercollider-server`, `sc3-plugins`.
+Launches `sclang` → `scsynth` via `pw-jack`. Requires `supercollider-server`, `sc3-plugins`.
 
 ### Python / sounddevice
 ```bash
 bash start_py.sh
 ```
-Sintesi in Python puro via `sounddevice → PipeWire`. Richiede `pip install sounddevice numpy python-osc`.
+Pure Python synthesis via `sounddevice → PipeWire`. Requires `pip install sounddevice numpy python-osc`.
 
 ### Pure Data (legacy)
 ```bash
 bash start_pd.sh
 ```
-Avvia `pd -nogui` via `pw-jack`. Richiede `pd` e libreria `mrpeach`. Il 5° parametro OSC (`event_code`) viene ignorato dalla patch Pd.
+Launches `pd -nogui` via `pw-jack`. Requires `pd` and the `mrpeach` library. The 5th OSC parameter (`event_code`) is ignored by the Pd patch.
 
 ---
 
-Tutti gli script inizializzano i mixer ALSA del WM8960 e attendono che PipeWire sia pronto prima di avviare il motore audio.
+All scripts initialize the WM8960 ALSA mixers and wait for PipeWire to be ready before starting the audio engine.
 
 ---
 
-## Mappatura sonora
+## Sound Mapping
 
-Il punto di riferimento geografico è **Cagliari** (39.2238°N, 9.1217°E).
+The geographic reference point is **Cagliari** (39.2238°N, 9.1217°E).
 
 ### Background — `\bell`
-24 campane FM in loop continuo (55–330 Hz), decay 5–11s, riverbero ampio.
-Sempre attivo, indipendente dagli eventi.
+24 FM bells in continuous loop (55–330 Hz), decay 5–11s, wide reverb.
+Always active, independent of incoming events.
 
-### Voci eventi
+### Event voices
 
-| Codice CAMEO | Tipo                      | SynthDef   | Frequenza   |
-|--------------|---------------------------|------------|-------------|
-| 190          | Forza militare            | `\combat`  | 330 Hz      |
-| 191          | Blocco                    | `\combat`  | 110 Hz      |
-| 192          | Occupazione               | `\combat`  | 165 Hz      |
-| 193          | Armi leggere              | `\combat`  | 880 → 500 Hz (capped) |
-| 194          | Artiglieria / Blindati    | `\bomb`    | grave (~55 Hz) |
-| 195          | Attacco aereo             | `\bomb`    | grave (~110 Hz) |
-| 196          | Violazione cessate fuoco  | `\combat`  | 660 → 500 Hz (capped) |
+| CAMEO Code | Type                       | SynthDef   | Frequency              |
+|------------|----------------------------|------------|------------------------|
+| 190        | Military force             | `\combat`  | 330 Hz                 |
+| 191        | Blockade                   | `\combat`  | 110 Hz                 |
+| 192        | Occupation                 | `\combat`  | 165 Hz                 |
+| 193        | Small arms                 | `\combat`  | 880 → 500 Hz (capped)  |
+| 194        | Artillery / Armored attack | `\bomb`    | low (~55 Hz)           |
+| 195        | Airstrike                  | `\bomb`    | low (~110 Hz)          |
+| 196        | Ceasefire violation        | `\combat`  | 660 → 500 Hz (capped)  |
 
-### Parametri in funzione della distanza
+### Distance-based parameters
 
-| Parametro     | Logica                                              |
-|---------------|-----------------------------------------------------|
-| Ampiezza      | Inversamente proporzionale alla distanza (max 1.0, min 0.02) |
-| Reverb mix    | Proporzionale alla distanza (max 0.92)              |
-| Decay         | Da 800 ms (vicino) a 10.000 ms (lontano, max 15.000 km) |
+| Parameter  | Logic                                                          |
+|------------|----------------------------------------------------------------|
+| Amplitude  | Inversely proportional to distance (max 1.0, min 0.02)        |
+| Reverb mix | Proportional to distance (max 0.92)                           |
+| Decay      | From 800 ms (nearby) to 10,000 ms (distant, max 15,000 km)   |
 
 ---
 
 ## OSC
 
-Il fetcher invia messaggi OSC a `127.0.0.1:9000`:
+The fetcher sends OSC messages to `127.0.0.1:9000`:
 
 ```
 /event  [freq: float, amp: float, reverb: float, decay_ms: float, event_code: int]
 ```
 
-SuperCollider ascolta su porta 9000 via `thisProcess.openUDPPort(9000)`.
+SuperCollider listens on port 9000 via `thisProcess.openUDPPort(9000)`.
 
 ---
 
-## Filtraggio eventi GDELT
+## GDELT Event Filtering
 
-- `EventRootCode == 19` (uso della forza)
+- `EventRootCode == 19` (use of force)
 - `EventCode` in `{190–196}`
-- `ActionGeo_Type >= 3` (localizzazione città o più precisa)
-- Esclusi eventi con URL contenente: `police`, `gang`, `murder`, `crime`, `drug`, `theft`, `arrest`
+- `ActionGeo_Type >= 3` (city-level or more precise geolocation)
+- Events excluded if URL contains: `police`, `gang`, `murder`, `crime`, `drug`, `theft`, `arrest`
 
-Per ogni ciclo vengono processati al massimo i **50 eventi** con punteggio più alto,
-distribuiti uniformemente nei **15 minuti** successivi al fetch.
+Per fetch cycle, at most **50 events** with the highest score are processed,
+distributed evenly over the **15 minutes** following the fetch.
